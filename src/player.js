@@ -1,95 +1,111 @@
+class Kart {
+    constructor(scene, color = 0xe60012) {
+        this.mesh = new THREE.Group();
+        
+        // Chassis
+        const body = new THREE.Mesh(
+            new THREE.BoxGeometry(1.2, 0.5, 2),
+            new THREE.MeshPhongMaterial({ color: color })
+        );
+        body.position.y = 0.4;
+        this.mesh.add(body);
+
+        // Seat
+        const seat = new THREE.Mesh(
+            new THREE.BoxGeometry(0.8, 0.6, 0.5),
+            new THREE.MeshPhongMaterial({ color: 0x333333 })
+        );
+        seat.position.set(0, 0.8, -0.2);
+        this.mesh.add(seat);
+
+        // Wheels
+        this.wheels = [];
+        const wheelGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 12);
+        const wheelMat = new THREE.MeshPhongMaterial({ color: 0x111111 });
+        const wheelPos = [
+            [-0.7, 0.3, 0.7], [0.7, 0.3, 0.7],
+            [-0.7, 0.3, -0.7], [0.7, 0.3, -0.7]
+        ];
+
+        wheelPos.forEach(pos => {
+            const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+            wheel.rotation.z = Math.PI / 2;
+            wheel.position.set(...pos);
+            this.mesh.add(wheel);
+            this.wheels.push(wheel);
+        });
+
+        scene.add(this.mesh);
+    }
+
+    updateWheels(speed = 0) {
+        this.wheels.forEach(w => w.rotation.x += speed * 2);
+    }
+}
+
 class Player {
     constructor(camera, scene) {
         this.camera = camera;
         this.scene = scene;
-        this.velocity = new THREE.Vector3();
-        this.moveSpeed = 0.25;
-        this.jumpForce = 0.28;
-        this.gravity = 0.01;
-        this.isGrounded = false;
+        this.kart = new Kart(scene, 0xe60012);
+        
+        this.velocity = 0;
+        this.maxSpeed = 0.6;
+        this.acceleration = 0.015;
+        this.friction = 0.98;
+        this.steering = 0;
+        this.angle = 0;
         
         this.keys = {};
         this.joystickDir = { x: 0, y: 0 };
-        this.jumpRequested = false;
 
         window.addEventListener('keydown', (e) => this.keys[e.code] = true);
         window.addEventListener('keyup', (e) => this.keys[e.code] = false);
+    }
 
-        // Player Visual Mesh (Local representation)
-        const headGeo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
-        const headMat = new THREE.MeshPhongMaterial({ color: 0xffdbac });
-        this.mesh = new THREE.Mesh(headGeo, headMat);
-        this.scene.add(this.mesh);
-
-        // Add some hair/accessories for style
-        const hairGeo = new THREE.BoxGeometry(0.65, 0.2, 0.65);
-        const hairMat = new THREE.MeshPhongMaterial({ color: 0xffff00 });
-        const hair = new THREE.Mesh(hairGeo, hairMat);
-        hair.position.y = 0.25;
-        this.mesh.add(hair);
+    useItem() {
+        // Visual effect for "jump/item"
+        this.kart.mesh.position.y = 2;
+        setTimeout(() => this.kart.mesh.position.y = 0.5, 200);
     }
 
     update(world) {
-        const inputDir = new THREE.Vector3();
-        
-        if (this.keys['KeyW'] || this.keys['ArrowUp']) inputDir.z -= 1;
-        if (this.keys['KeyS'] || this.keys['ArrowDown']) inputDir.z += 1;
-        if (this.keys['KeyA'] || this.keys['ArrowLeft']) inputDir.x -= 1;
-        if (this.keys['KeyD'] || this.keys['ArrowRight']) inputDir.x += 1;
-
-        // Merge mobile joystick input
-        inputDir.x += this.joystickDir.x;
-        inputDir.z += this.joystickDir.y;
-
-        if (inputDir.length() > 0.05) {
-            inputDir.normalize();
-            const rotation = new THREE.Euler(0, this.camera.rotation.y, 0, 'YXZ');
-            inputDir.applyEuler(rotation);
-            this.velocity.x = inputDir.x * this.moveSpeed;
-            this.velocity.z = inputDir.z * this.moveSpeed;
+        // Acceleration
+        if (this.keys['KeyW'] || this.keys['ArrowUp'] || this.joystickDir.y < -0.2) {
+            this.velocity += this.acceleration;
+        } else if (this.keys['KeyS'] || this.keys['ArrowDown'] || this.joystickDir.y > 0.2) {
+            this.velocity -= this.acceleration;
         } else {
-            this.velocity.x *= 0.85;
-            this.velocity.z *= 0.85;
+            this.velocity *= this.friction;
         }
 
-        // Gravity
-        this.velocity.y -= this.gravity;
+        this.velocity = Math.max(-this.maxSpeed/2, Math.min(this.maxSpeed, this.velocity));
 
-        // Jump
-        if ((this.keys['Space'] || this.jumpRequested) && this.isGrounded) {
-            this.velocity.y = this.jumpForce;
-            this.isGrounded = false;
-            this.jumpRequested = false;
-        }
-
-        // Horizontal move
-        this.camera.position.x += this.velocity.x;
-        this.camera.position.z += this.velocity.z;
-        
-        // Vertical move
-        this.camera.position.y += this.velocity.y;
-
-        // Collision Check
-        const collision = world.checkCollision(this.camera.position);
-        if (collision.hit) {
-            if (this.velocity.y < 0) {
-                this.camera.position.y = collision.y;
-                this.velocity.y = 0;
-                this.isGrounded = true;
+        // Steering
+        if (Math.abs(this.velocity) > 0.01) {
+            const steerDir = this.velocity > 0 ? 1 : -1;
+            if (this.keys['KeyA'] || this.keys['ArrowLeft'] || this.joystickDir.x < -0.2) {
+                this.angle += 0.04 * steerDir;
             }
-        } else {
-            this.isGrounded = false;
+            if (this.keys['KeyD'] || this.keys['ArrowRight'] || this.joystickDir.x > 0.2) {
+                this.angle -= 0.04 * steerDir;
+            }
         }
 
-        // Update visual mesh
-        this.mesh.position.copy(this.camera.position);
-        this.mesh.position.y -= 0.5;
-        this.mesh.rotation.y = this.camera.rotation.y;
+        // Movement
+        this.kart.mesh.position.x += Math.sin(this.angle) * this.velocity;
+        this.kart.mesh.position.z += Math.cos(this.angle) * this.velocity;
+        this.kart.mesh.rotation.y = this.angle;
 
-        // Respawn if fallen
-        if (this.camera.position.y < -30) {
-            this.camera.position.set(0, 10, 0);
-            this.velocity.set(0, 0, 0);
-        }
+        // Camera Follow
+        const camOffset = new THREE.Vector3(0, 4, -8);
+        camOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.angle);
+        this.camera.position.lerp(this.kart.mesh.position.clone().add(camOffset), 0.1);
+        this.camera.lookAt(this.kart.mesh.position);
+
+        this.kart.updateWheels(this.velocity);
+
+        // Collision
+        world.checkCollision(this.kart.mesh.position);
     }
 }
