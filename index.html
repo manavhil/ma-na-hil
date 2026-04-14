@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BarbieVerse 3D - Mobile Edition</title>
+    <link rel="stylesheet" href="styles/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <div id="ui-layer">
+        <div id="top-bar">
+            <div class="logo">BarbieVerse</div>
+            <div id="player-count">💖 Dolls: 12</div>
+        </div>
+
+        <div id="mobile-controls">
+            <div id="joystick-container">
+                <div id="joystick-base">
+                    <div id="joystick-knob"></div>
+                </div>
+            </div>
+            <button id="jump-btn">JUMP</button>
+        </div>
+
+        <div id="chat-container">
+            <div id="chat-messages"></div>
+            <input type="text" id="chat-input" placeholder="Say something fabulous..." maxlength="50">
+        </div>
+
+        <div id="instructions">
+            <div class="instruction-box">
+                <p>MANAHIL to Move | SPACE to Jump</p>
+                <p>MOBILE: Use Joystick & Jump Button</p>
+                <p>Drag screen to look around</p>
+                <button id="start-btn">START DREAMING</button>
+            </div>
+        </div>
+    </div>
+    <script src="src/world.js"></script>
+    <script src="src/player.js"></script>
+    <script src="src/main.js"></script>
+</body>
+</html>
