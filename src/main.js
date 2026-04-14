@@ -2,18 +2,18 @@ let scene, camera, renderer, world, player, bots = [];
 let clock = new THREE.Clock();
 let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-const botNames = ["Barbie", "Ken", "Skipper", "Midge", "Chelsea"];
-const botMessages = ["Hi Barbie!", "Fabulous day!", "So pink!", "Let's go!", "✨💖✨", "Love your outfit!", "Want to visit the DreamHouse?"];
+const botNames = ["Mario", "Luigi", "Peach", "Yoshi", "Toad"];
+const botMessages = ["Let's-a go!", "Mamma Mia!", "I'm the best!", "Yahoo!", "Here we go!", "Watch out!", "Blue shell incoming!"];
 
 function init() {
     try {
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xffc0cb);
-        scene.fog = new THREE.Fog(0xffc0cb, 40, 400);
+        scene.background = new THREE.Color(0x87CEEB); // Sky Blue
+        scene.fog = new THREE.Fog(0x87CEEB, 50, 500);
 
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 5, 15);
-        camera.rotation.order = 'YXZ';
+        // Follow camera setup
+        camera.position.set(0, 5, 10);
 
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(window.devicePixelRatio);
@@ -21,10 +21,10 @@ function init() {
         renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
         scene.add(ambientLight);
-        const sun = new THREE.DirectionalLight(0xffffff, 0.7);
-        sun.position.set(50, 100, 50);
+        const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+        sun.position.set(100, 100, 50);
         sun.castShadow = true;
         scene.add(sun);
 
@@ -37,26 +37,23 @@ function init() {
         window.addEventListener('resize', onWindowResize, false);
         animate();
         
-        console.log("BarbieVerse Initialized Successfully! 💖");
+        console.log("Mario Kart 3D Initialized! 🏎️💨");
     } catch (e) {
         console.error("Initialization Error:", e);
     }
 }
 
 function createBots() {
-    botNames.forEach((name) => {
-        const group = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.5, 0.5), new THREE.MeshPhongMaterial({ color: 0xff1493 }));
-        body.position.y = 0.75;
-        group.add(body);
-        
-        const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshPhongMaterial({ color: 0xffdbac }));
-        head.position.y = 1.75;
-        group.add(head);
-
-        group.position.set((Math.random()-0.5)*150, 0, (Math.random()-0.5)*150);
-        scene.add(group);
-        bots.push({ mesh: group, name: name, nextChat: Math.random()*5000+5000 });
+    botNames.forEach((name, index) => {
+        const bot = new Kart(scene, 0x43b02a + (index * 1000));
+        bot.mesh.position.set((Math.random()-0.5)*40, 0.5, (Math.random()-0.5)*40);
+        bots.push({
+            kart: bot,
+            name: name,
+            nextChat: Math.random()*5000+5000,
+            angle: Math.random() * Math.PI * 2,
+            speed: 0.1 + Math.random() * 0.1
+        });
     });
 }
 
@@ -71,42 +68,10 @@ function setupControls() {
         if (!isMobile) renderer.domElement.requestPointerLock();
     };
 
-    // Touch Camera Rotation
-    let touchX, touchY;
-    document.addEventListener('touchstart', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.id === 'joystick-base' || e.target.id === 'joystick-knob') return;
-        touchX = e.touches[0].pageX;
-        touchY = e.touches[0].pageY;
-    }, { passive: false });
-
-    document.addEventListener('touchmove', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.id === 'joystick-base' || e.target.id === 'joystick-knob') return;
-        const dx = e.touches[0].pageX - touchX;
-        const dy = e.touches[0].pageY - touchY;
-        camera.rotation.y -= dx * 0.005;
-        camera.rotation.x -= dy * 0.005;
-        camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
-        touchX = e.touches[0].pageX;
-        touchY = e.touches[0].pageY;
-    }, { passive: false });
-
-    // Mouse Camera Rotation
-    document.addEventListener('mousemove', (e) => {
-        if (document.pointerLockElement === renderer.domElement) {
-            camera.rotation.y -= e.movementX * 0.002;
-            camera.rotation.x -= e.movementY * 0.002;
-            camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
-        }
-    });
-
     // Joystick Logic
     const joyBase = document.getElementById('joystick-base');
     const joyKnob = document.getElementById('joystick-knob');
     
-    joyBase.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-    }, { passive: false });
-
     joyBase.addEventListener('touchmove', (e) => {
         e.preventDefault();
         const touch = e.touches[0];
@@ -131,22 +96,15 @@ function setupControls() {
         player.joystickDir = { x: 0, y: 0 };
     });
 
-    jumpBtn.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        player.jumpRequested = true;
-    }, { passive: false });
-
     jumpBtn.onclick = () => {
-        if (!isMobile) player.jumpRequested = true;
+        player.useItem();
     };
     
-    chatInput.onfocus = () => { if(!isMobile) document.exitPointerLock(); };
     chatInput.onkeydown = (e) => {
         if (e.key === 'Enter' && chatInput.value.trim()) {
             addChatMessage("You", chatInput.value);
             chatInput.value = "";
             chatInput.blur();
-            if (!isMobile) renderer.domElement.requestPointerLock();
         }
     };
 }
@@ -155,7 +113,7 @@ function addChatMessage(sender, msg) {
     const chatMessages = document.getElementById('chat-messages');
     const div = document.createElement('div');
     div.style.marginBottom = "5px";
-    div.innerHTML = `<strong style="color:#ff1493">${sender}:</strong> ${msg}`;
+    div.innerHTML = `<strong style="color:#e60012">${sender}:</strong> ${msg}`;
     chatMessages.prepend(div);
 }
 
@@ -172,16 +130,21 @@ function animate() {
     if (player) player.update(world);
     
     bots.forEach(bot => {
-        bot.nextChat -= 16; // Approx ms per frame
+        bot.nextChat -= 16;
         if (bot.nextChat <= 0) {
             addChatMessage(bot.name, botMessages[Math.floor(Math.random()*botMessages.length)]);
             bot.nextChat = 10000 + Math.random()*15000;
         }
-        // Simple bot bobbing
-        bot.mesh.position.y = Math.sin(Date.now() * 0.002) * 0.2;
+        
+        // Simple AI Circle driving
+        bot.angle += 0.01;
+        bot.kart.mesh.position.x += Math.sin(bot.angle) * bot.speed;
+        bot.kart.mesh.position.z += Math.cos(bot.angle) * bot.speed;
+        bot.kart.mesh.rotation.y = bot.angle + Math.PI/2;
+        bot.kart.updateWheels();
     });
 
     renderer.render(scene, camera);
 }
 
-try { init(); } catch (e) { console.error("Global error:", e); }
+init();
